@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Document</title>
+  </head>
+  <body>
+    <main>
+      <h1>Datastage to JSON</h1>
+    </main>
+    <form onsubmit="uploadFile(event)">
+      <input id="datastage" type="file" accept=".dsx" />
+      <input type="submit" />
+    </form>
+    <span class="result"></span>
+    <script>
+      function uploadFile(e) {
+        e.preventDefault();
+        const fileInput = document.getElementById("datastage");
+        const file = fileInput.files[0];
+
+        if (!file) {
+          alert("Please select a file.");
+          return;
+        }
+
+        const reader = new FileReader();
+        reader.onload = function (event) {
+          const dsxContent = event.target.result;
+          convertDSXToJSON(dsxContent);
+        };
+        reader.readAsText(file);
+      }
+
+      function convertDSXToJSON(dsxContent) {
+        fetch("/convert", {
+          method: "POST",
+          headers: {
+            "Content-Type": "text/plain",
+          },
+          body: dsxContent,
+        })
+          .then((response) => {
+            if (!response.ok) {
+              throw new Error("Network response was not ok");
+            }
+
+            return response.json();
+          })
+          .then((data) => {
+            console.log("JSON Result:", data);
+            document.getElementById("datastage").value = "";
+
+            const formattedJSON = JSON.stringify(data, null, 4); // 2 spaces for indentation
+
+            document.querySelector(".result").textContent = formattedJSON;
+            // Handle the JSON result as needed
+          })
+          .catch((error) => {
+            console.error("Error:", error);
+          });
+      }
+    </script>
+  </body>
+</html>
