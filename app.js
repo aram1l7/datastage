@@ -26,7 +26,7 @@ app.use(
 app.post("/convert", (req, res) => {
   const dsxContent = req.body;
   const jsonResult = parseDSXFile(dsxContent);
-  console.log(jsonResult, "jsonres");
+
   return res.status(200).json(jsonResult);
 });
 

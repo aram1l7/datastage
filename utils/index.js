@@ -1,52 +1,113 @@
-function parseDSXFile(dsxContent) {
-  const lines = dsxContent.split("\n");
-  const jsonResult = {};
-  let currentSection = null;
-  let dsRecords = [];
+function parseDSXFile(text) {
+  let obj = {};
+  let currentSection = "";
+  let currentKey = "";
+  let headerInfo = {};
+  const lines = text.split("\n");
 
-  for (const line of lines) {
-    let trimmedLine = line.trim();
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i].trim();
+    const lineNumber = i + 1;
 
-    if (
-      trimmedLine.startsWith("BEGIN DSJOB") ||
-      trimmedLine.startsWith("BEGIN DSEXECJOB")
-    ) {
-      currentSection = trimmedLine;
-      jsonResult[currentSection] = {};
-    } else if (
-      trimmedLine.startsWith("END DSJOB") ||
-      trimmedLine.startsWith("END DSEXECJOB")
-    ) {
-      currentSection = null;
-    } else if (trimmedLine.startsWith("BEGIN DSRECORD")) {
-      const record = {};
-      while (!trimmedLine.startsWith("END DSRECORD")) {
-        const [key, ...valueParts] = trimmedLine.split(' "');
-        const value = valueParts.join(' "').slice(0, -1);
-        record[key] = value;
-        trimmedLine = lines.shift().trim();
+    if (line.startsWith("BEGIN HEADER")) {
+      currentSection = "HEADER";
+      continue;
+    }
+
+    if (currentSection === "HEADER") {
+      if (line.startsWith("END HEADER")) {
+        currentSection = "";
+        continue;
       }
-      dsRecords.push(record);
-    } else if (trimmedLine.startsWith("BEGIN DSSUBRECORD")) {
-      const subRecord = {};
-      while (!trimmedLine.startsWith("END DSSUBRECORD")) {
-        const [key, ...valueParts] = trimmedLine.split(' "');
-        const value = valueParts.join(' "').slice(0, -1);
-        subRecord[key] = value;
-        trimmedLine = lines.shift().trim();
+
+      // Split line by the first occurrence of a double quote
+      const [key, value] = line.split(/"(.+)/).filter(Boolean);
+
+      // Update the headerInfo object with key-value pairs
+      headerInfo[key] = value;
+      continue;
+    }
+
+    if (line.startsWith("BEGIN")) {
+      currentSection = line.substring(6).trim();
+
+      if (
+        currentSection === "DSSUBRECORD" ||
+        currentSection === "DSRECORD" ||
+        currentSection === "DSBPBINARY"
+      ) {
+        if (!obj[currentSection]) {
+          obj[currentSection] = [];
+        }
+        obj[currentSection].push({});
+      } else {
+        obj[currentSection] = {};
       }
-      dsRecords[dsRecords.length - 1].DSSUBRECORDS =
-        dsRecords[dsRecords.length - 1].DSSUBRECORDS || [];
-      dsRecords[dsRecords.length - 1].DSSUBRECORDS.push(subRecord);
-    } else if (currentSection) {
-      const [key, ...valueParts] = trimmedLine.split(' "');
-      const value = valueParts.join(' "').slice(0, -1);
-      jsonResult[currentSection][key] = value;
+      continue;
+    }
+
+    if (line.startsWith("END")) {
+      currentSection = "";
+      currentKey = "";
+      continue;
+    }
+
+    if (currentSection) {
+      if (!currentKey) {
+        currentKey = line;
+      } else {
+        const [key, value] = line.split(/\s+(.+)/);
+
+        if (currentSection === "HEADER") {
+        } else {
+          if (obj[currentSection][obj[currentSection].length - 1]) {
+            if (
+              !obj[currentSection][obj[currentSection].length - 1][currentKey]
+            ) {
+              obj[currentSection][obj[currentSection].length - 1][currentKey] =
+                value;
+            } else {
+              if (
+                !Array.isArray(
+                  obj[currentSection][obj[currentSection].length - 1][
+                    currentKey
+                  ]
+                )
+              ) {
+                obj[currentSection][obj[currentSection].length - 1][
+                  currentKey
+                ] = [
+                  obj[currentSection][obj[currentSection].length - 1][
+                    currentKey
+                  ],
+                ];
+              }
+              obj[currentSection][obj[currentSection].length - 1][
+                currentKey
+              ].push(value);
+            }
+          } else {
+            console.error(`Error: No current section for line ${lineNumber}`);
+          }
+        }
+        currentKey = "";
+      }
+    } else {
+      console.error(`Error: No current section for line ${lineNumber}`);
     }
   }
 
-  jsonResult["DSRECORDS"] = dsRecords;
-  return jsonResult;
+  console.log(headerInfo, "headerInfo");
+  obj = {
+    ...obj,
+    HEADER: headerInfo,
+    DSJOB: undefined,
+    DSEXECJOB: undefined,
+    DSBPSOURCE: undefined,
+    CASE: undefined,
+  };
+
+  return obj;
 }
 
 module.exports = { parseDSXFile };
