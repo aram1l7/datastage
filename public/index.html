@@ -13,7 +13,7 @@
       <input id="datastage" type="file" accept=".dsx" />
       <input type="submit" />
     </form>
-    <span class="result"></span>
+    <pre class="result"></pre>
     <script>
       function uploadFile(e) {
         e.preventDefault();
@@ -52,9 +52,9 @@
             console.log("JSON Result:", data);
             document.getElementById("datastage").value = "";
 
-            const formattedJSON = JSON.stringify(data, null, 4); // 2 spaces for indentation
+            const formattedJSON = JSON.stringify(data, null, 4);
 
-            document.querySelector(".result").textContent = formattedJSON;
+            document.querySelector(".result").innerHTML = formattedJSON;
             // Handle the JSON result as needed
           })
           .catch((error) => {
