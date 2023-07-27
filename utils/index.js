@@ -54,7 +54,7 @@ function parseDSXFile(text) {
 
     if (currentSection) {
       if (!currentKey) {
-        currentKey = line;
+        currentKey = line.split(/\s(.+)/)[0]; // Update this line to only get the first part of the line before the space
       } else {
         const [key, value] = line.split(/\s+(.+)/);
 
@@ -97,7 +97,6 @@ function parseDSXFile(text) {
     }
   }
 
-  console.log(headerInfo, "headerInfo");
   obj = {
     ...obj,
     HEADER: headerInfo,
