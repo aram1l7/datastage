@@ -1,7 +1,7 @@
 function parseDSXFile(text) {
   let obj = {};
   let currentSection = "";
-  let currentKey = "";
+  let currentSubrecord = {};
   let headerInfo = {};
   const lines = text.split("\n");
 
@@ -20,77 +20,33 @@ function parseDSXFile(text) {
         continue;
       }
 
-      // Split line by the first occurrence of a double quote
-      const [key, value] = line.split(/"(.+)/).filter(Boolean);
-
-      // Update the headerInfo object with key-value pairs
-      headerInfo[key] = value;
+      const [key, value] = line.split(/"(.+)"/).filter(Boolean);
+      headerInfo[key.trim()] = value.trim();
       continue;
     }
 
     if (line.startsWith("BEGIN")) {
       currentSection = line.substring(6).trim();
-
-      if (
-        currentSection === "DSSUBRECORD" ||
-        currentSection === "DSRECORD" ||
-        currentSection === "DSBPBINARY"
-      ) {
-        if (!obj[currentSection]) {
-          obj[currentSection] = [];
-        }
-        obj[currentSection].push({});
-      } else {
-        obj[currentSection] = {};
+      if (!obj[currentSection]) {
+        obj[currentSection] = [];
       }
+      currentSubrecord = {};
+      obj[currentSection].push(currentSubrecord);
       continue;
     }
 
     if (line.startsWith("END")) {
       currentSection = "";
-      currentKey = "";
       continue;
     }
 
     if (currentSection) {
-      if (!currentKey) {
-        currentKey = line.split(/\s(.+)/)[0]; // Update this line to only get the first part of the line before the space
+      const keyValueMatch = line.match(/^(\w+)\s+"?(.*)"?$/);
+      if (keyValueMatch) {
+        const [, key, value] = keyValueMatch;
+        currentSubrecord[key.trim()] = value.trim();
       } else {
-        const [key, value] = line.split(/\s+(.+)/);
-
-        if (currentSection === "HEADER") {
-        } else {
-          if (obj[currentSection][obj[currentSection].length - 1]) {
-            if (
-              !obj[currentSection][obj[currentSection].length - 1][currentKey]
-            ) {
-              obj[currentSection][obj[currentSection].length - 1][currentKey] =
-                value;
-            } else {
-              if (
-                !Array.isArray(
-                  obj[currentSection][obj[currentSection].length - 1][
-                    currentKey
-                  ]
-                )
-              ) {
-                obj[currentSection][obj[currentSection].length - 1][
-                  currentKey
-                ] = [
-                  obj[currentSection][obj[currentSection].length - 1][
-                    currentKey
-                  ],
-                ];
-              }
-              obj[currentSection][obj[currentSection].length - 1][
-                currentKey
-              ].push(value);
-            }
-          } else {
-            console.error(`Error: No current section for line ${lineNumber}`);
-          }
-        }
-        currentKey = "";
+        console.warn(`Warning: Invalid line format in section ${currentSection}, line ${lineNumber}`);
       }
     } else {
       console.error(`Error: No current section for line ${lineNumber}`);
@@ -108,5 +64,7 @@ function parseDSXFile(text) {
 
   return obj;
 }
+
+
 
 module.exports = { parseDSXFile };
