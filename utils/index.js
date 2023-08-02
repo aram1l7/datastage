@@ -1,8 +1,12 @@
 function parseDSXFile(text) {
   let obj = {};
   let currentSection = "";
+  let currentRecord = {};
   let currentSubrecord = {};
   let headerInfo = {};
+  let isBinarySection = false;
+  let binaryData = {}; // Sto
+
   const lines = text.split("\n");
 
   for (let i = 0; i < lines.length; i++) {
@@ -25,13 +29,32 @@ function parseDSXFile(text) {
       continue;
     }
 
-    if (line.startsWith("BEGIN")) {
-      currentSection = line.substring(6).trim();
-      if (!obj[currentSection]) {
-        obj[currentSection] = [];
-      }
+    if (line.startsWith("BEGIN DSRECORD")) {
+      currentSection = "DSRECORD";
+      currentRecord = {};
+      currentRecord.DSSUBRECORDS = [];
+      obj.DSRECORD = obj.DSRECORD || [];
+      obj.DSRECORD.push(currentRecord);
+      continue;
+    }
+
+    if (line.startsWith("BEGIN DSSUBRECORD")) {
+      currentSection = "DSSUBRECORD";
       currentSubrecord = {};
-      obj[currentSection].push(currentSubrecord);
+      currentRecord.DSSUBRECORDS.push(currentSubrecord);
+      continue;
+    }
+
+    if (line.startsWith("BEGIN DSBPBINARY")) {
+      currentSection = "DSBPBINARY";
+      isBinarySection = true;
+      binaryData[currentSection] = {}; // Initialize binaryData to an empty object
+      continue;
+    }
+
+    if (line.startsWith("END DSBPBINARY")) {
+      currentSection = "";
+      isBinarySection = false;
       continue;
     }
 
@@ -40,14 +63,27 @@ function parseDSXFile(text) {
       continue;
     }
 
-    if (currentSection) {
+    if (currentSection === "DSRECORD" || currentSection === "DSSUBRECORD") {
       const keyValueMatch = line.match(/^(\w+)\s+"?(.*)"?$/);
       if (keyValueMatch) {
         const [, key, value] = keyValueMatch;
-        currentSubrecord[key.trim()] = value.trim();
+        const trimmedKey = key.trim();
+        const trimmedValue = value ? value.trim() : value;
+
+        if (currentSection === "DSRECORD") {
+          currentRecord[trimmedKey] = trimmedValue;
+        } else {
+          currentSubrecord[trimmedKey] = trimmedValue;
+        }
       } else {
-        console.warn(`Warning: Invalid line format in section ${currentSection}, line ${lineNumber}`);
+        console.warn(
+          `Warning: Invalid line format in section ${currentSection}, line ${lineNumber}`
+        );
       }
+    } else if (isBinarySection) {
+      // Process DSBPBINARY section here
+      const [key, value] = line.split(/\s(.+)/);
+      binaryData[currentSection][key] = value; // Store binary data as key-value pairs
     } else {
       console.error(`Error: No current section for line ${lineNumber}`);
     }
@@ -56,15 +92,10 @@ function parseDSXFile(text) {
   obj = {
     ...obj,
     HEADER: headerInfo,
-    DSJOB: undefined,
-    DSEXECJOB: undefined,
-    DSBPSOURCE: undefined,
-    CASE: undefined,
+    ...binaryData,
   };
 
   return obj;
 }
-
-
 
 module.exports = { parseDSXFile };
