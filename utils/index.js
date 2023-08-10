@@ -1,3 +1,7 @@
+function cleanValue(value) {
+  return value.replace(/["\\]/g, "");
+}
+
 function parseDSXFile(text) {
   let obj = {};
   let currentSection = "";
@@ -38,8 +42,12 @@ function parseDSXFile(text) {
       continue;
     }
 
-    if ((currentSection === "DSJOB" || currentSection === "DSEXECJOB") &&
-        (line.startsWith("Identifier") || line.startsWith("DateModified") || line.startsWith("TimeModified"))) {
+    if (
+      (currentSection === "DSJOB" || currentSection === "DSEXECJOB") &&
+      (line.startsWith("Identifier") ||
+        line.startsWith("DateModified") ||
+        line.startsWith("TimeModified"))
+    ) {
       const [key, value] = line.split(/"(.+)"/).filter(Boolean);
       currentJob[key.trim()] = value.trim();
       continue;
@@ -84,7 +92,7 @@ function parseDSXFile(text) {
       if (keyValueMatch) {
         const [, key, value] = keyValueMatch;
         const trimmedKey = key.trim();
-        const trimmedValue = value ? value.trim() : value;
+        const trimmedValue = value ? cleanValue(value.trim()) : value;
 
         if (currentSection === "DSRECORD") {
           currentRecord[trimmedKey] = trimmedValue;
@@ -98,7 +106,8 @@ function parseDSXFile(text) {
       }
     } else if (isBinarySection) {
       const [key, value] = line.split(/\s(.+)/);
-      binaryData[currentSection][key] = value;
+
+      binaryData[currentSection][key] = cleanValue(value);
     }
   }
 
