@@ -29,12 +29,20 @@ function parseDSXFile(text) {
       continue;
     }
 
+    if (line.startsWith("BEGIN DSJOB") || line.startsWith("BEGIN DSEXECJOB")) {
+      currentSection = line.startsWith("BEGIN DSJOB") ? "DSJOB" : "DSEXECJOB";
+      currentJob = {}; // Initialize a new current job object
+      currentJob.DSRECORD = []; // Initialize the DSRECORD property
+      obj[currentSection] = currentJob;
+      isBinarySection = false;
+      continue;
+    }
+
     if (line.startsWith("BEGIN DSRECORD")) {
       currentSection = "DSRECORD";
       currentRecord = {};
       currentRecord.DSSUBRECORDS = [];
-      obj.DSRECORD = obj.DSRECORD || [];
-      obj.DSRECORD.push(currentRecord);
+      currentJob.DSRECORD.push(currentRecord); // Add the record to the current job's DSRECORD array
       continue;
     }
 
@@ -60,6 +68,14 @@ function parseDSXFile(text) {
 
     if (line.startsWith("END")) {
       currentSection = "";
+      continue;
+    }
+
+    if (line.startsWith("BEGIN DSJOB") || line.startsWith("BEGIN DSEXECJOB")) {
+      currentSection = line.startsWith("BEGIN DSJOB") ? "DSJOB" : "DSEXECJOB";
+      currentJob = {}; // Initialize a new current job object
+      obj[currentSection] = currentJob;
+      isBinarySection = false;
       continue;
     }
 
