@@ -1,11 +1,12 @@
 function parseDSXFile(text) {
   let obj = {};
   let currentSection = "";
-  let currentRecord = {};
-  let currentSubrecord = {};
+  let currentJob = null;
+  let currentRecord = null;
+  let currentSubrecord = null;
   let headerInfo = {};
   let isBinarySection = false;
-  let binaryData = {}; // Sto
+  let binaryData = {};
 
   const lines = text.split("\n");
 
@@ -32,9 +33,15 @@ function parseDSXFile(text) {
     if (line.startsWith("BEGIN DSJOB") || line.startsWith("BEGIN DSEXECJOB")) {
       currentSection = line.startsWith("BEGIN DSJOB") ? "DSJOB" : "DSEXECJOB";
       currentJob = {}; // Initialize a new current job object
-      currentJob.DSRECORD = []; // Initialize the DSRECORD property
       obj[currentSection] = currentJob;
       isBinarySection = false;
+      continue;
+    }
+
+    if ((currentSection === "DSJOB" || currentSection === "DSEXECJOB") &&
+        (line.startsWith("Identifier") || line.startsWith("DateModified") || line.startsWith("TimeModified"))) {
+      const [key, value] = line.split(/"(.+)"/).filter(Boolean);
+      currentJob[key.trim()] = value.trim();
       continue;
     }
 
@@ -42,7 +49,8 @@ function parseDSXFile(text) {
       currentSection = "DSRECORD";
       currentRecord = {};
       currentRecord.DSSUBRECORDS = [];
-      currentJob.DSRECORD.push(currentRecord); // Add the record to the current job's DSRECORD array
+      currentJob.DSRECORDS = currentJob.DSRECORDS || [];
+      currentJob.DSRECORDS.push(currentRecord); // Add the record to the current job's DSRECORD array
       continue;
     }
 
@@ -71,14 +79,6 @@ function parseDSXFile(text) {
       continue;
     }
 
-    if (line.startsWith("BEGIN DSJOB") || line.startsWith("BEGIN DSEXECJOB")) {
-      currentSection = line.startsWith("BEGIN DSJOB") ? "DSJOB" : "DSEXECJOB";
-      currentJob = {}; // Initialize a new current job object
-      obj[currentSection] = currentJob;
-      isBinarySection = false;
-      continue;
-    }
-
     if (currentSection === "DSRECORD" || currentSection === "DSSUBRECORD") {
       const keyValueMatch = line.match(/^(\w+)\s+"?(.*)"?$/);
       if (keyValueMatch) {
@@ -97,17 +97,14 @@ function parseDSXFile(text) {
         );
       }
     } else if (isBinarySection) {
-      // Process DSBPBINARY section here
       const [key, value] = line.split(/\s(.+)/);
-      binaryData[currentSection][key] = value; // Store binary data as key-value pairs
-    } else {
-      console.error(`Error: No current section for line ${lineNumber}`);
+      binaryData[currentSection][key] = value;
     }
   }
 
   obj = {
-    ...obj,
     HEADER: headerInfo,
+    ...obj,
     ...binaryData,
   };
 
